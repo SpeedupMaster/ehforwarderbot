@@ -3,64 +3,98 @@ version: "3.3"
 services:
   efb:
     image: ghcr.io/jiz4oh/efb
+    container_name: efb
     volumes:
       - .:/data
       - "./comwechat/Files/:/comwechat/Files/"
       - "./cleanup.sh:/etc/periodic/daily/cleanup.sh"
+      - "./WeChatRobot.py:/usr/local/lib/python3.11/site-packages/wechatrobot/WeChatRobot.py"
     restart: unless-stopped
     network_mode: "service:comwechat"
     environment:
       - EFB_PROFILE=comwechat
+      - WECHATROBOT_BRIDGE_API_BASE=http://127.0.0.1:19088
+      - WECHATROBOT_PULL_WAIT_MS=15000
+      - WECHATROBOT_PULL_BATCH_SIZE=50
     logging:
       driver: json-file
       options:
         max-size: 1m
 
   comwechat:
+    container_name: comwechat
     environment:
         - VNCPASS=jiz4oh
+        - COMWECHAT_BRIDGE_API_HOST=0.0.0.0
+        - COMWECHAT_BRIDGE_API_PORT=19088
+        - COMWECHAT_API_PORT=18888
+        - COMWECHAT_BOOT_REORDER_WINDOW_SECONDS=30
+        - COMWECHAT_CONSUME_RATE_PER_SEC=5
+        - COMWECHAT_BRIDGE_MAX_BUFFER=20000
     volumes:
+        - comwechat_wine:/home/user/.wine/
         - "./comwechat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
         - ./run2.py:/run2.py
+        - ./comwechat_bridge.py:/comwechat_bridge.py
         - ./comwechat.zip:/comwechat.zip
     ports:
       - 5905:5905
     command: /run2.py
     privileged: true
     network_mode: bridge
+    mac_address: "02:42:ac:11:00:21"
     hostname: efb
     restart: unless-stopped
     image: tomsnow1999/docker-com_wechat_robot:latest
 
   efb2:
     image: ghcr.io/jiz4oh/efb
+    container_name: efb2
     volumes:
       - .:/data
       - "./comwechat/efb2/Files/:/comwechat/Files/"
       - "./cleanup.sh:/etc/periodic/daily/cleanup.sh"
+      - "./WeChatRobot.py:/usr/local/lib/python3.11/site-packages/wechatrobot/WeChatRobot.py"
     restart: unless-stopped
     network_mode: "service:comwechat2"
     environment:
       - EFB_PROFILE=comwechat2
+      - WECHATROBOT_BRIDGE_API_BASE=http://127.0.0.1:19088
+      - WECHATROBOT_PULL_WAIT_MS=15000
+      - WECHATROBOT_PULL_BATCH_SIZE=50
     logging:
       driver: json-file
       options:
         max-size: 1m
 
   comwechat2:
+    container_name: comwechat2
     environment:
         - VNCPASS=jiz4oh
+        - COMWECHAT_BRIDGE_API_HOST=0.0.0.0
+        - COMWECHAT_BRIDGE_API_PORT=19088
+        - COMWECHAT_API_PORT=18888
+        - COMWECHAT_BOOT_REORDER_WINDOW_SECONDS=30
+        - COMWECHAT_CONSUME_RATE_PER_SEC=5
+        - COMWECHAT_BRIDGE_MAX_BUFFER=20000
     volumes:
+        - comwechat2_wine:/home/user/.wine/
         - "./comwechat/efb2/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
         - ./run2.py:/run2.py
+        - ./comwechat_bridge.py:/comwechat_bridge.py
         - ./comwechat.zip:/comwechat.zip
     ports:
       - 5906:5905
     command: /run2.py
     privileged: true
     network_mode: bridge
+    mac_address: "02:42:ac:11:00:22"
     hostname: efb2
     restart: unless-stopped
     image: tomsnow1999/docker-com_wechat_robot:latest
+
+volumes:
+  comwechat_wine:
+  comwechat2_wine:

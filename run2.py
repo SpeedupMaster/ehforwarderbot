@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import subprocess, os, signal, datetime, time, json, sys
+from comwechat_bridge import BridgeConfig, BridgeService
 
 version = os.environ.get('COMWECHAT_VERSION', '3.9.12.16')
 
@@ -8,6 +9,7 @@ class DockerWechatHook:
         signal.signal(signal.SIGINT, self.now_exit)
         signal.signal(signal.SIGHUP, self.now_exit)
         signal.signal(signal.SIGTERM, self.now_exit)
+        self.bridge = None
 
     def now_exit(self, signum, frame):
         self.exit_container()
@@ -55,6 +57,12 @@ class DockerWechatHook:
     def exit_container(self):
         print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+ ' 正在退出容器...', flush=True)
         try:
+            if self.bridge is not None:
+                print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+ ' 停止消息桥接...', flush=True)
+                self.bridge.stop()
+        except Exception as e:
+            print(f"停止消息桥接异常: {e}", flush=True)
+        try:
             print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+ ' 退出微信...', flush=True)
             os.kill(self.wechat.pid, signal.SIGTERM)
         except:
@@ -77,6 +85,8 @@ class DockerWechatHook:
         self.run_wechat()
         self.run_hook()
         self.change_version()
+        self.bridge = BridgeService(BridgeConfig.from_env())
+        self.bridge.start()
         while True:
             time.sleep(1)
         print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+ ' 感谢使用.', flush=True)
