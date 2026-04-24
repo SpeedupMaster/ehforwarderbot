@@ -4,5 +4,9 @@
   },
   "profiles/*/config.yaml": {
     "type": "config"
+  },
+  "docker-compose*.yaml": {
+    "type": "compose",
+    "dispatch": "docker compose -f %:p up -d",
   }
 }
