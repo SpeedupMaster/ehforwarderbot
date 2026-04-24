@@ -33,14 +33,12 @@ services:
         - COMWECHAT_BRIDGE_MAX_BUFFER=20000
     volumes:
         - comwechat_wine:/home/user/.wine/
+        - "./:/runtime-host/"
         - "./comwechat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
-        - ./run2.py:/run2.py
-        - ./comwechat_bridge.py:/comwechat_bridge.py
-        - ./comwechat.zip:/comwechat.zip
     ports:
       - 5905:5905
-    command: /run2.py
+    command: /runtime-host/run2.py
     privileged: true
     network_mode: bridge
     mac_address: "02:42:ac:11:00:21"
@@ -80,14 +78,12 @@ services:
         - COMWECHAT_BRIDGE_MAX_BUFFER=20000
     volumes:
         - comwechat2_wine:/home/user/.wine/
+        - "./:/runtime-host/"
         - "./comwechat/efb2/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
-        - ./run2.py:/run2.py
-        - ./comwechat_bridge.py:/comwechat_bridge.py
-        - ./comwechat.zip:/comwechat.zip
     ports:
       - 5906:5905
-    command: /run2.py
+    command: /runtime-host/run2.py
     privileged: true
     network_mode: bridge
     mac_address: "02:42:ac:11:00:22"

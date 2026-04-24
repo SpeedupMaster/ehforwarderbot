@@ -15,8 +15,8 @@ class DockerWechatHook:
         self.exit_container()
 
     def prepare(self):
-        self.prepare = subprocess.run(['unzip', '-d', 'comwechat', 'comwechat.zip'])
-        self.prepare = subprocess.run(['mv', '/WeChatHook.exe', '/comwechat/http/WeChatHook.exe'])
+        self.prepare = subprocess.run(['unzip', '-d', '/comwechat', '/runtime-host/comwechat.zip'])
+        self.prepare = subprocess.run(['cp', '/WeChatHook.exe', '/comwechat/http/WeChatHook.exe'])
 
     def run_vnc(self):
         # 根据 VNCPASS 环境变量生成 vncpasswd 文件
