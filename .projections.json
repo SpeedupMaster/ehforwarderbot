@@ -7,6 +7,6 @@
   },
   "docker-compose*.yaml": {
     "type": "compose",
-    "dispatch": "docker compose -f %:p up -d",
+    "dispatch": "docker compose -f %:p up -d"
   }
 }
