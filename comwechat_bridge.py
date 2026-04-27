@@ -448,9 +448,11 @@ class BridgeService:
             self.stop_event.wait(0.2)
 
     def _rate_worker(self) -> None:
-        interval = 1.0 / self.config.consume_rate_per_sec
+        tick_seconds = 0.1
+        batch_size = max(1, int(round(self.config.consume_rate_per_sec * tick_seconds)))
+        interval = max(0.01, batch_size / self.config.consume_rate_per_sec)
         while not self.stop_event.is_set():
-            moved = self.buffer.emit_ready(limit=1)
+            moved = self.buffer.emit_ready(limit=batch_size)
             if moved == 0:
                 self.stop_event.wait(0.05)
                 continue
