@@ -70,6 +70,7 @@ def is_fast_path(msg: Dict[str, Any]) -> bool:
 
 @dataclass
 class BridgeConfig:
+    enabled: bool
     ingress_host: str
     ingress_port: int
     api_host: str
@@ -86,6 +87,7 @@ class BridgeConfig:
     @classmethod
     def from_env(cls) -> "BridgeConfig":
         return cls(
+            enabled=os.environ.get("COMWECHAT_BRIDGE_ENABLED", False),
             ingress_host=os.environ.get("COMWECHAT_BRIDGE_IN_HOST", "0.0.0.0"),
             ingress_port=_env_int("COMWECHAT_BRIDGE_IN_PORT", 23456),
             api_host=os.environ.get("COMWECHAT_BRIDGE_API_HOST", "0.0.0.0"),
@@ -477,6 +479,8 @@ class BridgeService:
             )
 
     def start(self) -> None:
+        if not self.config.enabled:
+            return
         self.ingress.start()
         self._start_hooks()
         self.api.start()
