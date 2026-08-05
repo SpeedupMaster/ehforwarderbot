@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib import request
 from urllib.error import URLError, HTTPError
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 
 LOGGER = logging.getLogger("comwechat_bridge")
@@ -39,6 +39,13 @@ def _env_float(name: str, default: float) -> float:
     except ValueError:
         LOGGER.warning("Invalid float env %s=%s, fallback=%s", name, value, default)
         return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def extract_sort_ts(msg: Dict[str, Any], received_ts: float) -> float:
@@ -68,6 +75,11 @@ def is_fast_path(msg: Dict[str, Any]) -> bool:
     return msg.get("isSendMsg") == 1 and msg.get("isSendByPhone") == 0
 
 
+def is_login_reorder_anchor(msg: Dict[str, Any]) -> bool:
+    message = msg.get("message")
+    return isinstance(message, str) and '<sysmsg type="SafeModuleCfg"' in message
+
+
 @dataclass
 class BridgeConfig:
     enabled: bool
@@ -77,7 +89,11 @@ class BridgeConfig:
     api_port: int
     comwechat_api_port: int
     hook_save_path: str
+    enable_image_hook: bool
+    enable_voice_hook: bool
     boot_reorder_window_seconds: int
+    login_anchor_probe_window_seconds: float
+    idle_anchor_probe_gap_seconds: float
     consume_rate_per_sec: float
     max_buffer: int
     hook_retry_times: int
@@ -96,7 +112,15 @@ class BridgeConfig:
             hook_save_path=os.environ.get(
                 "COMWECHAT_HOOK_SAVE_PATH", "C:\\Users\\user\\My Documents\\WeChat Files"
             ),
+            enable_image_hook=_env_bool("COMWECHAT_ENABLE_IMAGE_HOOK", True),
+            enable_voice_hook=_env_bool("COMWECHAT_ENABLE_VOICE_HOOK", True),
             boot_reorder_window_seconds=_env_int("COMWECHAT_BOOT_REORDER_WINDOW_SECONDS", 30),
+            login_anchor_probe_window_seconds=max(
+                0.0, _env_float("COMWECHAT_LOGIN_ANCHOR_PROBE_WINDOW_SECONDS", 1.0)
+            ),
+            idle_anchor_probe_gap_seconds=max(
+                0.0, _env_float("COMWECHAT_IDLE_ANCHOR_PROBE_GAP_SECONDS", 900.0)
+            ),
             consume_rate_per_sec=max(0.1, _env_float("COMWECHAT_CONSUME_RATE_PER_SEC", 5.0)),
             max_buffer=max(100, _env_int("COMWECHAT_BRIDGE_MAX_BUFFER", 20000)),
             hook_retry_times=max(1, _env_int("COMWECHAT_HOOK_RETRY_TIMES", 20)),
@@ -115,11 +139,14 @@ class MessageBuffer:
         self._lock = threading.Lock()
         self._cond = threading.Condition(self._lock)
 
-        self._boot_started_at: Optional[float] = None
-        self._boot_reorder_finished = False
+        self._reorder_started_at: Optional[float] = None
+        self._reorder_active = False
+        self._probe_started_at: Optional[float] = None
+        self._last_ingress_at: Optional[float] = None
         self._seq = 0
 
         self._reorder_heap: list[Tuple[float, int, Dict[str, Any]]] = []
+        self._probe_queue: deque[Tuple[float, int, Dict[str, Any]]] = deque()
         self._normal_queue: deque[Dict[str, Any]] = deque()
         self._ready_queue: deque[Dict[str, Any]] = deque()
 
@@ -128,48 +155,140 @@ class MessageBuffer:
             "ready_total": 0,
             "pulled_total": 0,
             "fast_path_total": 0,
+            "login_anchor_total": 0,
+            "probe_timeout_total": 0,
             "reordered_total": 0,
             "overflow_drop_total": 0,
         }
 
+    def _phase_locked(self) -> str:
+        if self._probe_started_at is not None:
+            return "login_probe"
+        return "login_reordering" if self._reorder_active else "steady"
+
     def phase(self) -> str:
         with self._lock:
-            return "steady" if self._boot_reorder_finished else "boot_reordering"
+            return self._phase_locked()
 
     def queue_size(self) -> int:
         with self._lock:
-            return len(self._reorder_heap) + len(self._normal_queue) + len(self._ready_queue)
+            return (
+                len(self._reorder_heap)
+                + len(self._probe_queue)
+                + len(self._normal_queue)
+                + len(self._ready_queue)
+            )
 
     def ingest(self, msg: Dict[str, Any]) -> None:
         received_ts = time.time()
+        ingress_ts = time.monotonic()
         with self._cond:
             self._stats["ingress_total"] += 1
-            if self._boot_started_at is None:
-                self._boot_started_at = time.monotonic()
-                LOGGER.info(
-                    "Bridge boot reorder window opened for %s seconds.",
-                    self.config.boot_reorder_window_seconds,
-                )
-
+            self._flush_probe_if_expired_locked(ingress_ts)
+            self._maybe_open_idle_anchor_probe_locked(msg, ingress_ts)
             if is_fast_path(msg):
                 self._ready_queue.appendleft(msg)
                 self._stats["fast_path_total"] += 1
                 self._stats["ready_total"] += 1
-            elif self._boot_reorder_finished:
-                self._normal_queue.append(msg)
-            else:
+            elif is_login_reorder_anchor(msg):
+                self._close_reorder_window_locked("reset")
+                self._move_probe_into_reorder_locked()
+                self._ready_queue.append(msg)
+                self._stats["login_anchor_total"] += 1
+                self._stats["ready_total"] += 1
+                self._open_reorder_window_locked(ingress_ts)
+            elif self._reorder_active:
                 sort_ts = extract_sort_ts(msg, received_ts)
                 heapq.heappush(self._reorder_heap, (sort_ts, self._seq, msg))
                 self._seq += 1
+            elif self._probe_started_at is not None:
+                sort_ts = extract_sort_ts(msg, received_ts)
+                self._probe_queue.append((sort_ts, self._seq, msg))
+                self._seq += 1
+            else:
+                self._normal_queue.append(msg)
 
+            self._last_ingress_at = ingress_ts
             self._drop_if_overflow_locked()
             self._cond.notify_all()
 
+    def _open_reorder_window_locked(self, started_at: float) -> None:
+        self._reorder_started_at = started_at
+        self._reorder_active = True
+        LOGGER.info(
+            "Bridge login reorder window opened for %s seconds.",
+            self.config.boot_reorder_window_seconds,
+        )
+
+    def _maybe_open_idle_anchor_probe_locked(self, msg: Dict[str, Any], now: float) -> None:
+        if self.config.login_anchor_probe_window_seconds <= 0:
+            return
+        if self._probe_started_at is not None or self._reorder_active:
+            return
+        if is_fast_path(msg) or is_login_reorder_anchor(msg):
+            return
+        if self._last_ingress_at is None:
+            return
+        idle_gap = now - self._last_ingress_at
+        if idle_gap < self.config.idle_anchor_probe_gap_seconds:
+            return
+        self._probe_started_at = now
+        LOGGER.info(
+            "Bridge idle anchor probe opened for %.1f seconds after %.1f seconds without ingress.",
+            self.config.login_anchor_probe_window_seconds,
+            idle_gap,
+        )
+
+    def _move_probe_into_reorder_locked(self) -> None:
+        while self._probe_queue:
+            sort_ts, seq, msg = self._probe_queue.popleft()
+            heapq.heappush(self._reorder_heap, (sort_ts, seq, msg))
+        self._probe_started_at = None
+
+    def _flush_probe_if_expired_locked(self, now: float) -> None:
+        if self._probe_started_at is None:
+            return
+        elapsed = now - self._probe_started_at
+        if elapsed < self.config.login_anchor_probe_window_seconds:
+            return
+
+        moved = 0
+        while self._probe_queue:
+            _, _, msg = self._probe_queue.popleft()
+            self._normal_queue.append(msg)
+            moved += 1
+        self._probe_started_at = None
+        self._stats["probe_timeout_total"] += moved
+        LOGGER.info("Bridge login anchor probe expired, released=%s messages.", moved)
+
+    def _close_reorder_window_locked(self, reason: str) -> int:
+        if not self._reorder_active:
+            return 0
+
+        moved = 0
+        while self._reorder_heap:
+            _, _, msg = heapq.heappop(self._reorder_heap)
+            self._normal_queue.append(msg)
+            moved += 1
+
+        self._reorder_started_at = None
+        self._reorder_active = False
+        self._stats["reordered_total"] += moved
+        LOGGER.info("Bridge login reorder window %s, moved=%s messages.", reason, moved)
+        return moved
+
     def _drop_if_overflow_locked(self) -> None:
-        while (len(self._reorder_heap) + len(self._normal_queue) + len(self._ready_queue)) > self.config.max_buffer:
+        while (
+            len(self._reorder_heap)
+            + len(self._probe_queue)
+            + len(self._normal_queue)
+            + len(self._ready_queue)
+        ) > self.config.max_buffer:
             dropped = None
             if self._normal_queue:
                 dropped = self._normal_queue.popleft()
+            elif self._probe_queue:
+                _, _, dropped = self._probe_queue.popleft()
             elif self._reorder_heap:
                 _, _, dropped = heapq.heappop(self._reorder_heap)
             elif self._ready_queue:
@@ -180,19 +299,14 @@ class MessageBuffer:
 
     def maybe_flush_reorder(self) -> None:
         with self._cond:
-            if self._boot_reorder_finished or self._boot_started_at is None:
+            now = time.monotonic()
+            self._flush_probe_if_expired_locked(now)
+            if not self._reorder_active or self._reorder_started_at is None:
                 return
-            elapsed = time.monotonic() - self._boot_started_at
+            elapsed = now - self._reorder_started_at
             if elapsed < self.config.boot_reorder_window_seconds:
                 return
-            moved = 0
-            while self._reorder_heap:
-                _, _, msg = heapq.heappop(self._reorder_heap)
-                self._normal_queue.append(msg)
-                moved += 1
-            self._boot_reorder_finished = True
-            self._stats["reordered_total"] += moved
-            LOGGER.info("Bridge reorder window closed, moved=%s messages.", moved)
+            self._close_reorder_window_locked("closed")
             self._cond.notify_all()
 
     def emit_ready(self, limit: int) -> int:
@@ -222,14 +336,18 @@ class MessageBuffer:
             self._stats["pulled_total"] += len(items)
             return {
                 "messages": items,
-                "queue_size": len(self._reorder_heap) + len(self._normal_queue) + len(self._ready_queue),
-                "phase": "steady" if self._boot_reorder_finished else "boot_reordering",
+                "queue_size": len(self._reorder_heap)
+                + len(self._probe_queue)
+                + len(self._normal_queue)
+                + len(self._ready_queue),
+                "phase": self._phase_locked(),
             }
 
     def snapshot(self) -> Dict[str, Any]:
         with self._lock:
             return {
-                "phase": "steady" if self._boot_reorder_finished else "boot_reordering",
+                "phase": self._phase_locked(),
+                "probe_queue_size": len(self._probe_queue),
                 "reorder_queue_size": len(self._reorder_heap),
                 "normal_queue_size": len(self._normal_queue),
                 "ready_queue_size": len(self._ready_queue),
@@ -237,6 +355,8 @@ class MessageBuffer:
                 "ready_total": self._stats["ready_total"],
                 "pulled_total": self._stats["pulled_total"],
                 "fast_path_total": self._stats["fast_path_total"],
+                "login_anchor_total": self._stats["login_anchor_total"],
+                "probe_timeout_total": self._stats["probe_timeout_total"],
                 "reordered_total": self._stats["reordered_total"],
                 "overflow_drop_total": self._stats["overflow_drop_total"],
             }
@@ -247,9 +367,15 @@ class _ThreadingIngressServer(socketserver.ThreadingTCPServer):
 
 
 class IngressSocketServer:
-    def __init__(self, config: BridgeConfig, buffer: MessageBuffer):
+    def __init__(
+        self,
+        config: BridgeConfig,
+        buffer: MessageBuffer,
+        on_ingress: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ):
         self.config = config
         self.buffer = buffer
+        self.on_ingress = on_ingress
         self.server: Optional[_ThreadingIngressServer] = None
         self.thread: Optional[threading.Thread] = None
 
@@ -277,6 +403,8 @@ class IngressSocketServer:
                         except (UnicodeDecodeError, json.JSONDecodeError):
                             LOGGER.warning("Invalid ingress payload dropped.")
                             continue
+                        if bridge_server.on_ingress is not None:
+                            bridge_server.on_ingress(msg)
                         bridge_server.buffer.ingest(msg)
                         try:
                             conn.sendall(b"200 OK")
@@ -338,6 +466,8 @@ class BridgeApiServer:
                         "ok": True,
                         "hooks_ready": bool(api_server.state.get("hooks_ready", False)),
                         "queue_size": queue_size,
+                        "is_login": api_server.state.get("is_login"),
+                        "login_state_source": api_server.state.get("login_state_source"),
                     },
                 )
 
@@ -393,9 +523,15 @@ class BridgeService:
     def __init__(self, config: BridgeConfig):
         self.config = config
         self.buffer = MessageBuffer(config)
-        self.state: Dict[str, Any] = {"hooks_ready": False}
+        self.state: Dict[str, Any] = {
+            "hooks_ready": False,
+            "is_login": None,
+            "login_state_source": None,
+            "last_login_signal_at": None,
+            "last_ingress_at": None,
+        }
 
-        self.ingress = IngressSocketServer(config, self.buffer)
+        self.ingress = IngressSocketServer(config, self.buffer, on_ingress=self._record_ingress_message)
         self.api = BridgeApiServer(config, self.buffer, self.state)
         self.stop_event = threading.Event()
         self.threads: list[threading.Thread] = []
@@ -417,11 +553,15 @@ class BridgeService:
         return json.loads(content, strict=False)
 
     def _start_hooks(self) -> None:
-        hooks = [
-            (9, {"port": self.config.ingress_port}, "StartMsgHook"),
-            (11, {"save_path": self.config.hook_save_path}, "StartImageHook"),
-            (13, {"save_path": self.config.hook_save_path}, "StartVoiceHook"),
-        ]
+        hooks = [(9, {"port": self.config.ingress_port}, "StartMsgHook")]
+        if self.config.enable_image_hook:
+            hooks.append((11, {"save_path": self.config.hook_save_path}, "StartImageHook"))
+        else:
+            LOGGER.info("StartImageHook skipped by COMWECHAT_ENABLE_IMAGE_HOOK=false")
+        if self.config.enable_voice_hook:
+            hooks.append((13, {"save_path": self.config.hook_save_path}, "StartVoiceHook"))
+        else:
+            LOGGER.info("StartVoiceHook skipped by COMWECHAT_ENABLE_VOICE_HOOK=false")
         for hook_type, payload, name in hooks:
             success = False
             for attempt in range(1, self.config.hook_retry_times + 1):
@@ -449,6 +589,22 @@ class BridgeService:
             self.buffer.maybe_flush_reorder()
             self.stop_event.wait(0.2)
 
+    def _record_ingress_message(self, msg: Dict[str, Any]) -> None:
+        now = time.time()
+        self.state["last_ingress_at"] = now
+        if self.state.get("is_login") is True:
+            return
+        if is_login_reorder_anchor(msg):
+            self.state["is_login"] = True
+            self.state["login_state_source"] = "anchor"
+            self.state["last_login_signal_at"] = now
+            LOGGER.info("Bridge marked login state=true from SafeModuleCfg anchor.")
+            return
+        self.state["is_login"] = True
+        self.state["login_state_source"] = "message"
+        self.state["last_login_signal_at"] = now
+        LOGGER.info("Bridge marked login state=true from ingress message.")
+
     def _rate_worker(self) -> None:
         tick_seconds = 0.1
         batch_size = max(1, int(round(self.config.consume_rate_per_sec * tick_seconds)))
@@ -464,8 +620,9 @@ class BridgeService:
         while not self.stop_event.wait(self.config.metrics_interval_seconds):
             snap = self.buffer.snapshot()
             LOGGER.info(
-                "Bridge stats phase=%s reorder=%s normal=%s ready=%s ingress=%s ready_total=%s pulled=%s fast=%s reordered=%s dropped=%s hooks_ready=%s",
+                "Bridge stats phase=%s probe=%s reorder=%s normal=%s ready=%s ingress=%s ready_total=%s pulled=%s fast=%s anchors=%s probe_timeouts=%s reordered=%s dropped=%s hooks_ready=%s is_login=%s",
                 snap["phase"],
+                snap["probe_queue_size"],
                 snap["reorder_queue_size"],
                 snap["normal_queue_size"],
                 snap["ready_queue_size"],
@@ -473,10 +630,22 @@ class BridgeService:
                 snap["ready_total"],
                 snap["pulled_total"],
                 snap["fast_path_total"],
+                snap["login_anchor_total"],
+                snap["probe_timeout_total"],
                 snap["reordered_total"],
                 snap["overflow_drop_total"],
                 self.state["hooks_ready"],
+                self.state["is_login"],
             )
+
+    def is_healthy(self) -> bool:
+        if not self.state.get("hooks_ready", False):
+            return False
+        if self.ingress.thread is None or not self.ingress.thread.is_alive():
+            return False
+        if self.api.thread is None or not self.api.thread.is_alive():
+            return False
+        return all(thread.is_alive() for thread in self.threads)
 
     def start(self) -> None:
         if not self.config.enabled:
