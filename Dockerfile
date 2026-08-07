@@ -1,6 +1,10 @@
 # Stage 1: Builder stage - Install build dependencies and Python packages
 FROM python:3.11-alpine AS builder
 
+ARG EFB_TELEGRAM_MASTER_REF=561d8daae4c989a179d82060c11cd5e9df1d28dd
+ARG PYTHON_COMWECHATROBOT_HTTP_REF=7dceac72f84855543e0883ae8ceb3bcb1b7b2dbf
+ARG EFB_WECHAT_COMWECHAT_SLAVE_REF=b06c7c8437f367aa4ad8986c6f06250bceba6637
+
 ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
 
@@ -31,9 +35,9 @@ RUN pip3 install --no-cache-dir ehforwarderbot python-telegram-bot pyqrcode; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@e7772cc2c5acc5b776f4bc0bc7562ea5b893eab9; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-telegram-master.git@4b26a6bbbe894bd0a4ddfed3169866e89772d011; \
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/python-comwechatrobot-http.git@649804ef42fe6b388fe6198130809680113d8d28; \
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-wechat-comwechat-slave.git@bf5494359ad910e6fb4d1f15e85e4c0ca948b394; \
+    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-telegram-master.git@${EFB_TELEGRAM_MASTER_REF}; \
+    pip3 install --no-cache-dir git+https://github.com/jiz4oh/python-comwechatrobot-http.git@${PYTHON_COMWECHATROBOT_HTTP_REF}; \
+    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-wechat-comwechat-slave.git@${EFB_WECHAT_COMWECHAT_SLAVE_REF}; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
 

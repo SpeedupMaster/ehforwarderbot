@@ -1,3 +1,19 @@
 *.db*
 WeChat/
 /comwechat/
+.comwechat-releases/
+
+# Local secrets, editor state, caches, and generated runtime output.
+.env
+.DS_Store
+.aider*
+.hermes/
+.vscode/
+.wxprobe/
+__pycache__/
+*.py[cod]
+nvim.log
+log/
+*.zip.bak
+docker-compose.local.yaml
+/docker-compose.my.yaml
