@@ -2,6 +2,7 @@
 WeChat/
 /comwechat/
 .comwechat-releases/
+.comwechat-snapshots/
 
 # Local secrets, editor state, caches, and generated runtime output.
 .env

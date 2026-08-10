@@ -20,9 +20,12 @@ services:
     environment:
         - VNCPASS=jiz4oh
         - COMWECHAT_API_PORT=18888
+        - COMWECHAT_BRIDGE_SNAPSHOT_NAME=comwechat
+        - COMWECHAT_BRIDGE_SNAPSHOT_DIR=/runtime-host/.comwechat-snapshots
     volumes:
         - comwechat_wine:/home/user/.wine/
         - "./comwechat.zip:/runtime-host/comwechat.zip:ro"
+        - "./.comwechat-snapshots/:/runtime-host/.comwechat-snapshots/"
         - "./comwechat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
     ports:
@@ -56,9 +59,12 @@ services:
     environment:
         - VNCPASS=jiz4oh
         - COMWECHAT_API_PORT=18888
+        - COMWECHAT_BRIDGE_SNAPSHOT_NAME=comwechat2
+        - COMWECHAT_BRIDGE_SNAPSHOT_DIR=/runtime-host/.comwechat-snapshots
     volumes:
         - comwechat2_wine:/home/user/.wine/
         - "./comwechat.zip:/runtime-host/comwechat.zip:ro"
+        - "./.comwechat-snapshots/:/runtime-host/.comwechat-snapshots/"
         - "./comwechat/efb2/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
         # - "./comwechat/Data/:/home/user/.wine/drive_c/users/user/Application Data/"
     ports:
