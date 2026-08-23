@@ -2,6 +2,7 @@
 WeChat/
 /comwechat/
 .comwechat-releases/
+comwechat-native-releases/
 .comwechat-snapshots/
 
 # Local secrets, editor state, caches, and generated runtime output.
@@ -13,6 +14,7 @@ WeChat/
 .wxprobe/
 __pycache__/
 *.py[cod]
+*_dbkey.json
 nvim.log
 log/
 *.zip.bak
