@@ -25,6 +25,7 @@ RUN set -ex; \
         libwebp-dev;
     # Install python packages using pip with --no-cache-dir
 RUN pip3 install --no-cache-dir urllib3==1.26.15; \
+    pip3 install --no-cache-dir --upgrade 'setuptools>=82.0.1'; \
     # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
     pip3 install --no-cache-dir --no-deps --force-reinstall rich Pillow; \
@@ -77,6 +78,11 @@ RUN set -ex; \
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
 # Copy executables installed by pip packages
 COPY --from=builder /usr/local/bin/ehforwarderbot /usr/local/bin/ehforwarderbot
+
+# The base image also ships setuptools. Remove its stale dist-info before
+# reinstalling so importlib.metadata sees the version copied from the builder.
+RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools-*.dist-info \
+    && pip3 install --no-cache-dir --force-reinstall 'setuptools>=82.0.1'
 
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /entrypoint.sh
