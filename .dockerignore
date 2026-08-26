@@ -1,0 +1,11 @@
+**
+!comwechat.zip
+!entrypoint.sh
+!ComWeChatRobot/
+!ComWeChatRobot/WeChatHook.exe
+!ComWeChatRobot/Dockerfile
+!ComWeChatRobot/Dockerfile.debug
+!ComWeChatRobot/run.py
+!ComWeChatRobot/comwechat_bridge.py
+!ComWeChatRobot/runtime_watchdog.py
+!ComWeChatRobot/comwechat_login.py
