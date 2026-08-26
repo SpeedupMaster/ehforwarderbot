@@ -1,0 +1,25 @@
+# Overlay for telegram-bot-api: keeps the original unmodified binary but adds
+# a transparent SOCKS5 redirector so all outbound TCP goes through socks5.
+#
+# Usage with compose: build this overlay instead of the plain upstream image.
+FROM ghcr.io/jiz4oh/telegram-bot-api-server:latest
+
+USER root
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends curl ca-certificates iptables; \
+    rm -rf /var/lib/apt/lists/*
+
+ARG GOST_VERSION=v2.12.0
+RUN set -eux; \
+    GOST_NUM="$(echo "${GOST_VERSION}" | sed 's/^v//')"; \
+    curl -fsSL -o /tmp/gost.tar.gz "https://github.com/ginuerzh/gost/releases/download/${GOST_VERSION}/gost_${GOST_NUM}_linux_amd64.tar.gz"; \
+    tar -xzf /tmp/gost.tar.gz -C /usr/local/bin; \
+    chmod 755 /usr/local/bin/gost; \
+    rm /tmp/gost.tar.gz
+
+COPY scripts/start-telegram-bot-api-proxy.sh /usr/local/bin/start-telegram-bot-api-proxy.sh
+RUN chmod 755 /usr/local/bin/start-telegram-bot-api-proxy.sh
+
+ENTRYPOINT ["/usr/local/bin/start-telegram-bot-api-proxy.sh"]
