@@ -1,6 +1,6 @@
 services:
   efb:
-    image: ghcr.io/jiz4oh/efb:v2.8.0
+    image: efb:v3.0.0
     container_name: efb
     volumes:
       - .:/data

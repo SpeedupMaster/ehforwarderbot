@@ -2,8 +2,9 @@
 FROM python:3.11-alpine AS builder
 
 ARG EFB_TELEGRAM_MASTER_REF=561d8daae4c989a179d82060c11cd5e9df1d28dd
-ARG PYTHON_COMWECHATROBOT_HTTP_REF=7dceac72f84855543e0883ae8ceb3bcb1b7b2dbf
-ARG EFB_WECHAT_COMWECHAT_SLAVE_REF=b06c7c8437f367aa4ad8986c6f06250bceba6637
+ARG PYTHON_COMWECHATROBOT_HTTP_REF=bcacee431c6d2419759a60cfde4e228b0fa5ef5a
+ARG EFB_WECHAT_COMWECHAT_SLAVE_REF=e01a385deff4bf0df3275f09ce636390b9777da8
+ARG EFB_MAP_MIDDLEWARE_REF=51f360e95bd38db4bd65485f1bdb5a388e6f5be9
 
 ENV LANG C.UTF-8
 ENV TZ 'Asia/Shanghai'
@@ -33,7 +34,7 @@ RUN pip3 install --no-cache-dir urllib3==1.26.15; \
     # Install other Python dependencies from git and PyPI
 RUN pip3 install --no-cache-dir ehforwarderbot python-telegram-bot pyqrcode; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@e7772cc2c5acc5b776f4bc0bc7562ea5b893eab9; \
-    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@51f360e95bd38db4bd65485f1bdb5a388e6f5be9; \
+    pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@${EFB_MAP_MIDDLEWARE_REF}; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-telegram-master.git@${EFB_TELEGRAM_MASTER_REF}; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/python-comwechatrobot-http.git@${PYTHON_COMWECHATROBOT_HTTP_REF}; \
@@ -65,6 +66,7 @@ RUN set -ex; \
         libffi \
         py3-pillow \
         openssl \
+        sqlcipher-libs \
         libwebp \
         cronie \
         py3-ruamel.yaml; \

@@ -103,7 +103,7 @@ class BridgeConfig:
     @classmethod
     def from_env(cls) -> "BridgeConfig":
         return cls(
-            enabled=os.environ.get("COMWECHAT_BRIDGE_ENABLED", False),
+            enabled=_env_bool("COMWECHAT_BRIDGE_ENABLED", True),
             ingress_host=os.environ.get("COMWECHAT_BRIDGE_IN_HOST", "0.0.0.0"),
             ingress_port=_env_int("COMWECHAT_BRIDGE_IN_PORT", 23456),
             api_host=os.environ.get("COMWECHAT_BRIDGE_API_HOST", "0.0.0.0"),
