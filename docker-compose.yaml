@@ -11,7 +11,6 @@ services:
     volumes:
       - .:/data
       - "./comwechat/Files/:/comwechat/Files/"
-      - "./cleanup.sh:/etc/periodic/daily/cleanup.sh"
       - efb_tmp:/tmp
       - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
     restart: unless-stopped
