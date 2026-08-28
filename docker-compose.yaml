@@ -27,7 +27,7 @@ services:
     build:
       context: .
       dockerfile: ComWeChatRobot/Dockerfile
-    image: comwechatrobot:prod
+    image: ghcr.io/jiz4oh/comwechatrobot:prod
     volumes:
       - comwechat_wine:/home/user/.wine/
       - "./comwechat/Files/:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/"
@@ -37,15 +37,11 @@ services:
         - COMWECHAT_AUTO_LOGIN_TIMEOUT=0
     ports:
       - "5905:5905"
-    command: /run.py
     privileged: true
     restart: unless-stopped
 
   telegram_bot_api:
-    build:
-      context: .
-      dockerfile: Dockerfile.telegram-bot-api-proxy
-    image: telegram-bot-api-proxy:local
+    image: ghcr.io/jiz4oh/telegram-bot-api-server:latest
     container_name: telegram_bot_api
     privileged: true
     restart: unless-stopped
