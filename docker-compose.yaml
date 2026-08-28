@@ -24,9 +24,6 @@ services:
 
   comwechat:
     container_name: comwechat
-    build:
-      context: .
-      dockerfile: ComWeChatRobot/Dockerfile
     image: ghcr.io/jiz4oh/comwechatrobot:prod
     volumes:
       - comwechat_wine:/home/user/.wine/
