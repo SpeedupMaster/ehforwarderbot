@@ -12,7 +12,6 @@ services:
       - .:/data
       - "./comwechat/Files/:/comwechat/Files/"
       - "./cleanup.sh:/etc/periodic/daily/cleanup.sh"
-      - "./efb-wechat-comwechat-slave/efb_wechat_comwechat_slave:/usr/local/lib/python3.11/site-packages/efb_wechat_comwechat_slave"
       - efb_tmp:/tmp
       - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
     restart: unless-stopped
@@ -51,8 +50,8 @@ services:
     privileged: true
     restart: unless-stopped
     environment:
-      - TGSOCKS_PROXY_HOST=100.117.183.86
-      - TGSOCKS_PROXY_PORT=37890
+      - TGSOCKS_PROXY_HOST=127.0.0.1
+      - TGSOCKS_PROXY_PORT=7890
     volumes:
       - .:/data
       - "./comwechat/Files/:/comwechat/Files/"
