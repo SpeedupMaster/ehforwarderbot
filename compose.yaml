@@ -1,0 +1,107 @@
+# Default, publishable Compose topology. Personal overrides belong in the
+# ignored compose.override.yaml, which Docker Compose loads automatically.
+
+services:
+  efb:
+    image: ${EFB_IMAGE:-efb:v3.0.0}
+    container_name: efb
+    depends_on:
+      - comwechat
+      - telegram_bot_api
+    network_mode: "service:comwechat"
+    volumes:
+      - .:/data
+      - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
+      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/comwechat/Files
+      - efb_tmp:/tmp
+      - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
+    restart: unless-stopped
+    environment:
+      EFB_PROFILE: comwechat
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+
+  comwechat:
+    container_name: comwechat
+    image: ${COMWECHAT_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.08.30}
+    volumes:
+      - comwechat_wine:/home/user/.wine/
+      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
+    environment:
+      VNCPASS: ${COMWECHAT_VNC_PASSWORD:?set COMWECHAT_VNC_PASSWORD in .env or your shell}
+      COMWECHAT_AUTO_LOGIN: "true"
+      COMWECHAT_AUTO_LOGIN_TIMEOUT: "0"
+    ports:
+      - "${COMWECHAT_VNC_PORT:-5905}:5905"
+    privileged: true
+    restart: unless-stopped
+
+  efb2:
+    profiles: [canary]
+    image: ${EFB_IMAGE:-efb:v3.0.0}
+    container_name: efb2
+    depends_on:
+      - comwechat2
+      - telegram_bot_api
+    network_mode: "service:comwechat2"
+    volumes:
+      - .:/data
+      - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
+      - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/comwechat/Files
+      - efb_tmp:/tmp
+      - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
+    restart: unless-stopped
+    environment:
+      EFB_PROFILE: comwechat2
+      PYTHONUNBUFFERED: "1"
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+
+  comwechat2:
+    profiles: [canary]
+    container_name: comwechat2
+    platform: linux/amd64
+    image: ${COMWECHAT_DEV_IMAGE:-ghcr.io/jiz4oh/comwechat-dev:2026.08.30.1b3dc5b}
+    environment:
+      VNCPASS: ${COMWECHAT2_VNC_PASSWORD:-${COMWECHAT_VNC_PASSWORD:?set COMWECHAT_VNC_PASSWORD in .env or your shell}}
+      COMWECHAT_BRIDGE_SNAPSHOT_NAME: comwechat2
+      COMWECHAT_AUTO_LOGIN: "true"
+      COMWECHAT_AUTO_LOGIN_TIMEOUT: "0"
+    volumes:
+      - comwechat2_wine:/home/user/.wine/
+      - .:/runtime-host/
+      - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
+    ports:
+      - "${COMWECHAT2_VNC_PORT:-5906}:5905"
+    privileged: true
+    restart: unless-stopped
+
+  telegram_bot_api:
+    image: ${TELEGRAM_BOT_API_IMAGE:-ghcr.io/jiz4oh/telegram-bot-api-server:latest}
+    container_name: telegram_bot_api
+    privileged: true
+    restart: unless-stopped
+    environment:
+      TGSOCKS_PROXY_HOST: ${TGSOCKS_PROXY_HOST:-127.0.0.1}
+      TGSOCKS_PROXY_PORT: ${TGSOCKS_PROXY_PORT:-7890}
+    volumes:
+      - .:/data
+      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/comwechat/Files/
+      - efb_tmp:/tmp
+      - telegram_bot_api_data:/var/lib/telegram-bot-api
+    command:
+      - "--local"
+      - "--http-port=8081"
+      - "--api-id=${TELEGRAM_API_ID:?set TELEGRAM_API_ID in .env or your shell}"
+      - "--api-hash=${TELEGRAM_API_HASH:?set TELEGRAM_API_HASH in .env or your shell}"
+      - "--dir=/var/lib/telegram-bot-api"
+
+volumes:
+  comwechat_wine:
+  comwechat2_wine:
+  efb_tmp:
+  telegram_bot_api_data:

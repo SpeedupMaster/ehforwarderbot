@@ -20,5 +20,7 @@ log/
 *.zip.bak
 docker-compose.local.yaml
 /docker-compose.my.yaml
+/compose.override.yaml
+/myprofiles/
 profiles/*/honus.comwechat/media_retry_cache.json
 .comwechat-analysis/
