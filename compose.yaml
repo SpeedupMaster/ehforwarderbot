@@ -8,7 +8,6 @@ services:
     depends_on:
       - comwechat
       - telegram_bot_api
-    network_mode: "service:comwechat"
     volumes:
       - .:/data
       - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
@@ -18,6 +17,8 @@ services:
     restart: unless-stopped
     environment:
       EFB_PROFILE: comwechat
+      WECHATROBOT_API_BASE: http://comwechat:18888
+      WECHATROBOT_BRIDGE_API_BASE: http://comwechat:19088
     logging:
       driver: json-file
       options:
@@ -45,7 +46,6 @@ services:
     depends_on:
       - comwechat2
       - telegram_bot_api
-    network_mode: "service:comwechat2"
     volumes:
       - .:/data
       - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
@@ -55,6 +55,8 @@ services:
     restart: unless-stopped
     environment:
       EFB_PROFILE: comwechat2
+      WECHATROBOT_API_BASE: http://comwechat2:18888
+      WECHATROBOT_BRIDGE_API_BASE: http://comwechat2:19088
       PYTHONUNBUFFERED: "1"
     logging:
       driver: json-file
