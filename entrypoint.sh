@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# 启动 crond 服务
-crond
-
 PARAMS=
 
 if [ -n "$EFB_PROFILE" ]; then

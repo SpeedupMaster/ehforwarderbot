@@ -27,6 +27,7 @@ services:
   comwechat:
     container_name: comwechat
     image: ${COMWECHAT_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.08.30}
+    command: ["/runtime.py"]
     volumes:
       - comwechat_wine:/home/user/.wine/
       - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
@@ -68,6 +69,7 @@ services:
     container_name: comwechat2
     platform: linux/amd64
     image: ${COMWECHAT_DEV_IMAGE:-ghcr.io/jiz4oh/comwechat-dev:2026.08.30.1b3dc5b}
+    command: ["/runtime.py"]
     environment:
       VNCPASS: ${COMWECHAT2_VNC_PASSWORD:-${COMWECHAT_VNC_PASSWORD:?set COMWECHAT_VNC_PASSWORD in .env or your shell}}
       COMWECHAT_BRIDGE_SNAPSHOT_NAME: comwechat2

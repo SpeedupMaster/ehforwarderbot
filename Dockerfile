@@ -6,8 +6,12 @@ ARG PYTHON_COMWECHATROBOT_HTTP_REF=fba818f30daac257092913068f7396fd8c88361a
 ARG EFB_WECHAT_COMWECHAT_SLAVE_REF=b9e6c681ab34603aa90c24854c2f9dbd76039bd9
 ARG EFB_MAP_MIDDLEWARE_REF=51f360e95bd38db4bd65485f1bdb5a388e6f5be9
 
-ENV LANG C.UTF-8
-ENV TZ 'Asia/Shanghai'
+ENV LANG=C.UTF-8 \
+    TZ='Asia/Shanghai' \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_NO_COMPILE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 # Install build-time dependencies for apk packages and pip packages
 RUN set -ex; \
@@ -43,15 +47,28 @@ RUN pip3 install --no-cache-dir ehforwarderbot python-telegram-bot pyqrcode; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb-keyword-reply.git@c7dfef513e85d6647ad78c70b4e3353ab8804977; \
     pip3 install --no-cache-dir git+https://github.com/QQ-War/efb_message_merge.git@946837e5508bf9325060f15f2a725525baf368ff;
 
+# Keep build-only bytecode and packaging tools out of the copied runtime tree.
+RUN find /usr/local/lib/python3.11/site-packages -type f \
+        \( -name '*.pyc' -o -name '*.pyo' \) -delete \
+    && rm -rf \
+        /usr/local/lib/python3.11/site-packages/pip \
+        /usr/local/lib/python3.11/site-packages/pip-*.dist-info \
+        /usr/local/lib/python3.11/site-packages/wheel \
+        /usr/local/lib/python3.11/site-packages/wheel-*.dist-info
+
 # Stage 2: Final stage - Install only runtime dependencies and copy artifacts
 FROM python:3.11-alpine
 
-ENV LANG C.UTF-8
-ENV TZ 'Asia/Shanghai'
-ENV EFB_DATA_PATH /data/
-ENV EFB_PARAMS ""
-ENV EFB_PROFILE "default"
-ENV HTTPS_PROXY ""
+ENV LANG=C.UTF-8 \
+    TZ='Asia/Shanghai' \
+    EFB_DATA_PATH=/data/ \
+    EFB_PARAMS="" \
+    EFB_PROFILE="default" \
+    HTTPS_PROXY="" \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_NO_COMPILE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 # Set timezone
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
@@ -65,24 +82,29 @@ RUN set -ex; \
         zlib \
         jpeg \
         libffi \
-        py3-pillow \
         openssl \
         sqlcipher-libs \
-        libwebp \
-        cronie \
-        py3-ruamel.yaml; \
+        libwebp; \
     # Clean up apk cache
     rm -rf /var/cache/apk/*;
+
+# Remove the base image's packaging tools before copying the single builder
+# version of setuptools and the application packages.
+RUN rm -rf \
+        /usr/local/lib/python3.11/site-packages/pip \
+        /usr/local/lib/python3.11/site-packages/pip-*.dist-info \
+        /usr/local/lib/python3.11/site-packages/setuptools \
+        /usr/local/lib/python3.11/site-packages/setuptools-*.dist-info \
+        /usr/local/lib/python3.11/site-packages/wheel \
+        /usr/local/lib/python3.11/site-packages/wheel-*.dist-info \
+        /usr/local/bin/pip \
+        /usr/local/bin/pip3 \
+        /usr/local/bin/pip3.11
 
 # Copy installed python packages from builder stage's site-packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
 # Copy executables installed by pip packages
 COPY --from=builder /usr/local/bin/ehforwarderbot /usr/local/bin/ehforwarderbot
-
-# The base image also ships setuptools. Remove its stale dist-info before
-# reinstalling so importlib.metadata sees the version copied from the builder.
-RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools-*.dist-info \
-    && pip3 install --no-cache-dir --force-reinstall 'setuptools>=82.0.1'
 
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /entrypoint.sh
