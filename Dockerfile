@@ -30,14 +30,14 @@ RUN set -ex; \
     # Install python packages using pip with --no-cache-dir
 RUN pip3 install --no-cache-dir urllib3==1.26.15; \
     pip3 install --no-cache-dir --upgrade 'setuptools>=82.0.1'; \
-    # Install/reinstall rich and Pillow from pip (as per original Dockerfile intent)
+    # Install Pillow from pip (the runtime uses it for Telegram media).
     # Note: Pillow might be installed via apk (py3-pillow) and pip, pip version will likely take precedence.
-    pip3 install --no-cache-dir --no-deps --force-reinstall rich Pillow; \
-    # Install TgCrypto, ignoring any pre-installed PyYAML
-    pip3 install --no-cache-dir --ignore-installed PyYAML TgCrypto;
+    pip3 install --no-cache-dir --no-deps --force-reinstall Pillow; \
+    # Ensure PyYAML is available.
+    pip3 install --no-cache-dir --ignore-installed PyYAML;
 
     # Install other Python dependencies from git and PyPI
-RUN pip3 install --no-cache-dir ehforwarderbot python-telegram-bot pyqrcode; \
+RUN pip3 install --no-cache-dir ehforwarderbot python-telegram-bot; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-mp-instantview-middleware.git@e7772cc2c5acc5b776f4bc0bc7562ea5b893eab9; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-map-middleware.git@${EFB_MAP_MIDDLEWARE_REF}; \
     pip3 install --no-cache-dir git+https://github.com/jiz4oh/efb-keyword-replace.git@ede3f2ede8092017d7005f9b2150d6325076c852; \
