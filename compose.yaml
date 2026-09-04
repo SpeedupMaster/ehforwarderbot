@@ -3,13 +3,12 @@
 
 services:
   efb:
-    image: ${EFB_IMAGE:-efb:v3.0.0}
+    image: ${EFB_IMAGE:-efb:v3.1.0}
     container_name: efb
     depends_on:
       - comwechat
       - telegram_bot_api
     volumes:
-      - .:/data
       - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
       - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/comwechat/Files
       - efb_tmp:/tmp
@@ -26,8 +25,7 @@ services:
 
   comwechat:
     container_name: comwechat
-    image: ${COMWECHAT_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.08.30}
-    command: ["/runtime.py"]
+    image: ${COMWECHAT_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.09.04}
     volumes:
       - comwechat_wine:/home/user/.wine/
       - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
@@ -42,13 +40,12 @@ services:
 
   efb2:
     profiles: [canary]
-    image: ${EFB_IMAGE:-efb:v3.0.0}
+    image: ${EFB_IMAGE:-efb:v3.1.0}
     container_name: efb2
     depends_on:
       - comwechat2
       - telegram_bot_api
     volumes:
-      - .:/data
       - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
       - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/comwechat/Files
       - efb_tmp:/tmp
@@ -68,8 +65,7 @@ services:
     profiles: [canary]
     container_name: comwechat2
     platform: linux/amd64
-    image: ${COMWECHAT_DEV_IMAGE:-ghcr.io/jiz4oh/comwechat-dev:2026.08.30.1b3dc5b}
-    command: ["/runtime.py"]
+    image: ${COMWECHAT_DEV_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.09.04}
     environment:
       VNCPASS: ${COMWECHAT2_VNC_PASSWORD:-${COMWECHAT_VNC_PASSWORD:?set COMWECHAT_VNC_PASSWORD in .env or your shell}}
       COMWECHAT_BRIDGE_SNAPSHOT_NAME: comwechat2
