@@ -3,14 +3,14 @@
 
 services:
   efb:
-    image: ${EFB_IMAGE:-efb:v3.1.0}
+    image: ${EFB_IMAGE:-ghcr.io/jiz4oh/efb:v3.1.0}
     container_name: efb
     depends_on:
       - comwechat
       - telegram_bot_api
     volumes:
       - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
-      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/comwechat/Files
+      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/data/comwechat/Files
       - efb_tmp:/tmp
       - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
     restart: unless-stopped
@@ -40,14 +40,14 @@ services:
 
   efb2:
     profiles: [canary]
-    image: ${EFB_IMAGE:-efb:v3.1.0}
+    image: ${EFB_IMAGE:-ghcr.io/jiz4oh/efb:v3.1.0}
     container_name: efb2
     depends_on:
       - comwechat2
       - telegram_bot_api
     volumes:
       - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
-      - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/comwechat/Files
+      - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/data/comwechat/Files
       - efb_tmp:/tmp
       - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
     restart: unless-stopped
