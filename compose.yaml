@@ -38,48 +38,6 @@ services:
     privileged: true
     restart: unless-stopped
 
-  efb2:
-    profiles: [canary]
-    image: ${EFB_IMAGE:-ghcr.io/jiz4oh/efb:v3.1.0}
-    container_name: efb2
-    depends_on:
-      - comwechat2
-      - telegram_bot_api
-    volumes:
-      - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
-      - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/data/comwechat/Files
-      - efb_tmp:/tmp
-      - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
-    restart: unless-stopped
-    environment:
-      EFB_PROFILE: comwechat2
-      WECHATROBOT_API_BASE: http://comwechat2:18888
-      WECHATROBOT_BRIDGE_API_BASE: http://comwechat2:19088
-      PYTHONUNBUFFERED: "1"
-    logging:
-      driver: json-file
-      options:
-        max-size: 1m
-
-  comwechat2:
-    profiles: [canary]
-    container_name: comwechat2
-    platform: linux/amd64
-    image: ${COMWECHAT_DEV_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.09.04}
-    environment:
-      VNCPASS: ${COMWECHAT2_VNC_PASSWORD:-${COMWECHAT_VNC_PASSWORD:?set COMWECHAT_VNC_PASSWORD in .env or your shell}}
-      COMWECHAT_BRIDGE_SNAPSHOT_NAME: comwechat2
-      COMWECHAT_AUTO_LOGIN: "true"
-      COMWECHAT_AUTO_LOGIN_TIMEOUT: "0"
-    volumes:
-      - comwechat2_wine:/home/user/.wine/
-      - .:/runtime-host/
-      - ${COMWECHAT2_FILES_DIR:-./comwechat/efb2/Files}:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
-    ports:
-      - "${COMWECHAT2_VNC_PORT:-5906}:5905"
-    privileged: true
-    restart: unless-stopped
-
   telegram_bot_api:
     image: ${TELEGRAM_BOT_API_IMAGE:-ghcr.io/jiz4oh/telegram-bot-api-server:latest}
     container_name: telegram_bot_api
