@@ -9,8 +9,8 @@ services:
       - comwechat
       - telegram_bot_api
     volumes:
-      - ${EFB_PROFILES_DIR:-./profiles}:/data/profiles
-      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/data/comwechat/Files
+      - /opt/efb-wechat/profiles:/data/profiles:/data/profiles
+      - /opt/efb-wechat/comwechat/Files:/data/comwechat/Files:/data/comwechat/Files
       - efb_tmp:/tmp
       - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
     restart: unless-stopped
@@ -28,7 +28,7 @@ services:
     image: ${COMWECHAT_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.09.04}
     volumes:
       - comwechat_wine:/home/user/.wine/
-      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
+      - /opt/efb-wechat/comwechat/Files:/data/comwechat/Files:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
     environment:
       VNCPASS: ${COMWECHAT_VNC_PASSWORD:?set COMWECHAT_VNC_PASSWORD in .env or your shell}
       COMWECHAT_AUTO_LOGIN: "true"
@@ -60,6 +60,5 @@ services:
 
 volumes:
   comwechat_wine:
-  comwechat2_wine:
   efb_tmp:
   telegram_bot_api_data:
