@@ -1,6 +1,3 @@
-# Default, publishable Compose topology. Personal overrides belong in the
-# ignored compose.override.yaml, which Docker Compose loads automatically.
-
 services:
   efb:
     image: ${EFB_IMAGE:-ghcr.io/jiz4oh/efb:v3.1.0}
@@ -9,8 +6,8 @@ services:
       - comwechat
       - telegram_bot_api
     volumes:
-      - /opt/efb-wechat/profiles:/data/profiles:/data/profiles
-      - /opt/efb-wechat/comwechat/Files:/data/comwechat/Files:/data/comwechat/Files
+      - /opt/efb-wechat/profiles:/data/profiles
+      - /opt/efb-wechat/comwechat/Files:/data/comwechat/Files
       - efb_tmp:/tmp
       - telegram_bot_api_data:/var/lib/telegram-bot-api:ro
     restart: unless-stopped
@@ -28,7 +25,7 @@ services:
     image: ${COMWECHAT_IMAGE:-ghcr.io/jiz4oh/comwechat:2026.09.04}
     volumes:
       - comwechat_wine:/home/user/.wine/
-      - /opt/efb-wechat/comwechat/Files:/data/comwechat/Files:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
+      - /opt/efb-wechat/comwechat/Files:/home/user/.wine/drive_c/users/user/My Documents/WeChat Files/
     environment:
       VNCPASS: ${COMWECHAT_VNC_PASSWORD:?set COMWECHAT_VNC_PASSWORD in .env or your shell}
       COMWECHAT_AUTO_LOGIN: "true"
@@ -47,8 +44,7 @@ services:
       TGSOCKS_PROXY_HOST: ${TGSOCKS_PROXY_HOST:-127.0.0.1}
       TGSOCKS_PROXY_PORT: ${TGSOCKS_PROXY_PORT:-7890}
     volumes:
-      - .:/data
-      - ${COMWECHAT_FILES_DIR:-./comwechat/Files}:/comwechat/Files/
+      - /opt/efb-wechat/comwechat/Files:/comwechat/Files/
       - efb_tmp:/tmp
       - telegram_bot_api_data:/var/lib/telegram-bot-api
     command:
